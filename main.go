@@ -6,7 +6,7 @@ import (
 	"log"
 	"time"
 
-	univ3factory "dex-feed/bindings/uniswap_v3"
+	univ3factory "dex-feed/bindings/uniswap_v3/factory"
 	uniswapv3 "dex-feed/exchanges/uniswap_v3"
 
 	"github.com/ethereum/go-ethereum/common"

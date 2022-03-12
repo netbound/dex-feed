@@ -2,14 +2,19 @@ package uniswapv3
 
 import (
 	"context"
-	univ3factory "dex-feed/bindings/uniswap_v3"
 	"errors"
 	"math/big"
 	"time"
 
+	univ3factory "dex-feed/bindings/uniswap_v3/factory"
+
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
+)
+
+var (
+	ErrPoolNotFound = errors.New("uniswap v3 factory: pool not found")
 )
 
 type UniswapV3 struct {
@@ -19,7 +24,7 @@ type UniswapV3 struct {
 }
 
 func (v3 *UniswapV3) GetPoolWithFee(token0, token1 common.Address, fee int64) (common.Address, error) {
-	// Make sure the address order is the same as in the Pool contract
+	// Make sure the address order is the same as in the Pool contract, easier for lookups
 	if token1.String() < token0.String() {
 		tmp := token0
 		token0 = token1
@@ -39,7 +44,7 @@ func (v3 *UniswapV3) GetPoolWithFee(token0, token1 common.Address, fee int64) (c
 	}
 
 	if pool == zeroAddress {
-		return zeroAddress, errors.New("uniswap v3 error: pool not found")
+		return zeroAddress, ErrPoolNotFound
 	}
 
 	// TODO: if we get here, we should write the contract to the DB and cache it in memory
