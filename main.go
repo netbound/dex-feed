@@ -42,7 +42,7 @@ func main() {
 		Factory: factoryInstance,
 	}
 
-	pool, err := univ3.GetPoolWithFee(wethAddress, usdcAddress, fee)
+	pool, err := univ3.GetPoolAddress(wethAddress, usdcAddress, fee)
 	if err != nil {
 		log.Fatal(err)
 	}
