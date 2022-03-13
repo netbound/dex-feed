@@ -9,11 +9,11 @@ import (
 
 	univ3factory "dex-feed/bindings/uniswap_v3/factory"
 	univ3pool "dex-feed/bindings/uniswap_v3/pool"
+	"dex-feed/db"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
-	lru "github.com/hashicorp/golang-lru"
 )
 
 var (
@@ -28,21 +28,15 @@ type UniswapV3 struct {
 	Client *ethclient.Client
 
 	// Holds the pool addresses for different assets and fee tiers
-	PoolCache *lru.Cache
+	PoolCache db.Cacher
 
 	Factory *univ3factory.Univ3factoryCaller
 	Pool    *univ3pool.Univ3poolCaller
 }
 
-// TODO
-type PoolCache struct {
-	MemoryCache *lru.Cache
-	DbCache     interface{}
-}
-
 func New(client *ethclient.Client, addrs UniswapV3Addresses) *UniswapV3 {
 	// Only errors when cache size is negative
-	c, _ := lru.New(2048)
+	c := db.NewCache(2048)
 
 	factory, err := univ3factory.NewUniv3factoryCaller(addrs.FactoryAddress, client)
 	if err != nil {
@@ -69,7 +63,6 @@ func (v3 *UniswapV3) GetPoolAddress(token0, token1 common.Address, fee int64) (c
 	// This works because the values are still unique
 	key := string(append(keyBytes, byte(fee)))
 
-	// TODO: check if contract is in memory cache / in the DB
 	if pool, ok := v3.GetPoolCached(key); ok {
 		return pool, nil
 	}
@@ -88,10 +81,8 @@ func (v3 *UniswapV3) GetPoolAddress(token0, token1 common.Address, fee int64) (c
 		return zeroAddress, ErrPoolNotFound
 	}
 
-	// Add pool to memory cache
-	v3.PoolCache.Add(key, pool)
-
-	// TODO: if we get here, we should write the contract to the DB and cache it in memory
+	// Cache the pool (both in-memory and on-disk)
+	v3.PoolCache.Put(key, pool)
 
 	return pool, nil
 }
