@@ -1,11 +1,14 @@
 package postgresdb
 
-import "testing"
+import (
+	"fmt"
+	"testing"
+)
 
-func testNew() (*PostgresDb, error) {
+func testNew(name string) (*PostgresDb, error) {
 	connStr := "postgres://dex-feed:dex-feed@localhost/dex-feed?sslmode=disable"
 
-	pdb, err := New(connStr)
+	pdb, err := NewDbCache(connStr, name)
 	if err != nil {
 		return nil, err
 	}
@@ -14,12 +17,24 @@ func testNew() (*PostgresDb, error) {
 }
 
 func TestNew(t *testing.T) {
-	pdb, err := testNew()
+	pdb, err := testNew("testNew")
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	if err := pdb.db.Ping(); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestPut(t *testing.T) {
+	pdb, err := testNew("testNew")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	pdb.Put("hello", "world")
+	if val, ok := pdb.Get("hello"); ok {
+		fmt.Println(val)
 	}
 }

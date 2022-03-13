@@ -36,7 +36,7 @@ type UniswapV3 struct {
 
 func New(client *ethclient.Client, addrs UniswapV3Addresses) *UniswapV3 {
 	// Only errors when cache size is negative
-	c := db.NewCache(2048)
+	c := db.NewCache("univ3_pool_cache", 2048)
 
 	factory, err := univ3factory.NewUniv3factoryCaller(addrs.FactoryAddress, client)
 	if err != nil {
@@ -82,7 +82,7 @@ func (v3 *UniswapV3) GetPoolAddress(token0, token1 common.Address, fee int64) (c
 	}
 
 	// Cache the pool (both in-memory and on-disk)
-	v3.PoolCache.Put(key, pool)
+	v3.PoolCache.Put(key, pool.String())
 
 	return pool, nil
 }
@@ -91,7 +91,7 @@ func (v3 *UniswapV3) GetPoolCached(key string) (common.Address, bool) {
 	// TODO: check in memory, then in DB
 	// if cache hit, return address and true, else return false
 	if pool, ok := v3.PoolCache.Get(key); ok {
-		return pool.(common.Address), true
+		return common.HexToAddress(pool), true
 	}
 
 	return [20]byte{}, false

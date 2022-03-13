@@ -13,10 +13,14 @@ func New(size int) *LruCache {
 	return &LruCache{c}
 }
 
-func (c LruCache) Get(key string) (interface{}, bool) {
-	return c.cache.Get(key)
+func (c LruCache) Get(key string) (string, bool) {
+	if val, ok := c.cache.Get(key); ok {
+		return val.(string), true
+	}
+
+	return "", false
 }
 
-func (c *LruCache) Put(key string, value interface{}) {
+func (c *LruCache) Put(key string, value string) {
 	c.cache.Add(key, value)
 }
