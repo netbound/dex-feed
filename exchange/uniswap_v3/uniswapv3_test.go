@@ -2,6 +2,7 @@ package uniswapv3
 
 import (
 	"context"
+	"log"
 	"testing"
 	"time"
 
@@ -9,7 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 )
 
-func newConnectedUniV3(t *testing.T) *UniswapV3 {
+func newConnectedUniV3() *UniswapV3 {
 	var (
 		factoryAddress = common.HexToAddress("0x1F98431c8aD98523631AE4a59f267346ea31F984")
 		rpcApi         = "http://localhost:8080/eth"
@@ -20,7 +21,7 @@ func newConnectedUniV3(t *testing.T) *UniswapV3 {
 
 	c, err := ethclient.DialContext(ctx, rpcApi)
 	if err != nil {
-		t.Fatal(err)
+		log.Fatal(err)
 	}
 
 	addrs := UniswapV3Addresses{FactoryAddress: factoryAddress}
@@ -36,7 +37,7 @@ func TestGetPoolWithFee(t *testing.T) {
 		fee         = int64(3000)
 	)
 
-	uni := newConnectedUniV3(t)
+	uni := newConnectedUniV3()
 
 	t1 := time.Now()
 	pool, err := uni.GetPoolAddress(wethAddress, usdcAddress, fee)
@@ -59,5 +60,4 @@ func TestGetPoolWithFee(t *testing.T) {
 
 	timeWithCache := time.Since(t2)
 	t.Logf("time with cache: %v", timeWithCache)
-
 }

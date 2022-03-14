@@ -1,26 +1,25 @@
 package db
 
 import (
+	"dex-feed/db/leveldb"
 	"dex-feed/db/memorydb"
-	"dex-feed/db/postgresdb"
 	"log"
 )
 
 type Cacher interface {
-	Get(key string) (string, bool)
-	Put(key string, value string)
+	Get(key string) ([]byte, bool)
+	Put(key string, value []byte)
 }
 
 type Cache struct {
 	lruCache *memorydb.LruCache
-	dbCache  *postgresdb.PostgresDb
+	dbCache  *leveldb.Database
 }
 
 func NewCache(name string, size int) *Cache {
-	connStr := "postgres://dex-feed:dex-feed@localhost/dex-feed?sslmode=disable"
-	dbCache, err := postgresdb.NewDbCache(connStr, name)
+	dbCache, err := leveldb.NewDatabase(name)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal("err creating leveldb", err)
 	}
 
 	return &Cache{
@@ -29,7 +28,7 @@ func NewCache(name string, size int) *Cache {
 	}
 }
 
-func (c Cache) Get(key string) (string, bool) {
+func (c Cache) Get(key string) ([]byte, bool) {
 	// First check in-memory cache
 	if val, ok := c.lruCache.Get(key); ok {
 		return val, true
@@ -37,13 +36,15 @@ func (c Cache) Get(key string) (string, bool) {
 
 	// Then check on-disk cache
 	if val, ok := c.dbCache.Get(key); ok {
+		// If found on disk, cache in memory for later hits
+		c.lruCache.Put(key, val)
 		return val, true
 	}
 
-	return "", false
+	return []byte{}, false
 }
 
-func (c *Cache) Put(key string, value string) {
+func (c *Cache) Put(key string, value []byte) {
 	c.lruCache.Put(key, value)
 	c.dbCache.Put(key, value)
 }

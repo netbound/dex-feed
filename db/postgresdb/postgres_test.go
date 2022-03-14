@@ -1,7 +1,6 @@
 package postgresdb
 
 import (
-	"fmt"
 	"testing"
 )
 
@@ -34,7 +33,18 @@ func TestPut(t *testing.T) {
 	}
 
 	pdb.Put("hello", "world")
+}
+
+func TestGet(t *testing.T) {
+	pdb, err := testNew("testNew")
+	if err != nil {
+		t.Fatal(err)
+	}
 	if val, ok := pdb.Get("hello"); ok {
-		fmt.Println(val)
+		if val != "world" {
+			t.Fatalf("Wrong value %s, should be world", val)
+		}
+	} else {
+		t.Fatal("Value not found")
 	}
 }
