@@ -4,11 +4,15 @@ import (
 	"dex-feed/db/leveldb"
 	"dex-feed/db/memorydb"
 	"log"
+
+	"github.com/syndtr/goleveldb/leveldb/iterator"
 )
 
 type Cacher interface {
 	Get(key string) ([]byte, bool)
 	Put(key string, value []byte)
+
+	NewIterator() iterator.Iterator
 }
 
 type Cache struct {
@@ -47,4 +51,8 @@ func (c Cache) Get(key string) ([]byte, bool) {
 func (c *Cache) Put(key string, value []byte) {
 	c.lruCache.Put(key, value)
 	c.dbCache.Put(key, value)
+}
+
+func (c Cache) NewIterator() iterator.Iterator {
+	return c.dbCache.NewIterator()
 }

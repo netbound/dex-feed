@@ -13,15 +13,15 @@ import (
 var (
 	ethUsdcPool = common.HexToAddress("0x8ad599c3A0ff1De082011EFDDc58f1908eb6e6D8")
 
-	wethAddress = common.HexToAddress("0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2")
-	usdcAddress = common.HexToAddress("0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48")
-	fee         = int64(3000)
-
 	token1 = token.NewToken("WETH", wethAddress, 18)
 	token0 = token.NewToken("USDC", usdcAddress, 6)
 )
 
+var p, _ = newTestPool()
+var client *ethclient.Client
+
 func newTestPool() (*Pool, error) {
+	var err error
 
 	i := PoolImmutables{
 		Token0: token0,
@@ -34,12 +34,12 @@ func newTestPool() (*Pool, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 	defer cancel()
 
-	c, err := ethclient.DialContext(ctx, rpcApi)
+	client, err = ethclient.DialContext(ctx, rpcApi)
 	if err != nil {
 		return nil, err
 	}
 
-	p, err := NewPool(c, "WETHUSDC", ethUsdcPool, i)
+	p, err := NewPool(client, "WETHUSDC", ethUsdcPool, i)
 	if err != nil {
 		return nil, err
 	}
@@ -57,12 +57,7 @@ func TestNewPool(t *testing.T) {
 }
 
 func TestUpdateState(t *testing.T) {
-	p, err := newTestPool()
-	if err != nil {
-		t.Fatalf("error creating pool: %s", err)
-	}
-
-	err = p.UpdateState()
+	err := p.UpdateState(client)
 	if err != nil {
 		t.Fatalf("error updating state: %s", err)
 	}
@@ -77,21 +72,31 @@ func TestUpdateState(t *testing.T) {
 }
 
 func TestPriceOf(t *testing.T) {
-	p, err := newTestPool()
-	if err != nil {
-		t.Fatalf("error creating pool: %s", err)
-	}
-
-	err = p.UpdateState()
-	if err != nil {
-		t.Fatalf("error updating state: %s", err)
-	}
-
-	price, err := p.PriceOf(token1)
+	price, err := p.PriceOf(token1.Address)
 	if err != nil {
 		t.Fatalf("error getting price: %s", err)
 	}
 
 	t.Log("price of", token1.Name, price)
+}
 
+func BenchmarkPriceOf(b *testing.B) {
+	_, err := p.PriceOf(token1.Address)
+	if err != nil {
+		b.Fatalf("error getting price: %s", err)
+	}
+}
+
+func TestEncodeDecodePool(t *testing.T) {
+	poolBytes, err := p.EncodePool()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	newPool, err := DecodePool(poolBytes)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	t.Logf("%#v", newPool)
 }

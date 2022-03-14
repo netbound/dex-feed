@@ -1,7 +1,9 @@
 package uniswapv3
 
 import (
+	"bytes"
 	"context"
+	"encoding/gob"
 	"errors"
 	"math/big"
 	"time"
@@ -33,7 +35,8 @@ type Pool struct {
 	Name    string
 	Address common.Address
 
-	Caller *univ3pool.Univ3poolCaller
+	// NOTE: this field is empty for now because it is lost on encoding/decoding
+	caller *univ3pool.Univ3poolCaller
 
 	Immutables PoolImmutables
 	State      PoolState // The last known Pool State
@@ -48,7 +51,7 @@ func NewPool(client *ethclient.Client, name string, poolAddress common.Address, 
 	return &Pool{
 		Name:       name,
 		Address:    poolAddress,
-		Caller:     caller,
+		caller:     caller,
 		Immutables: immutables,
 		// Initialize empty PoolState
 		State: PoolState{},
@@ -57,12 +60,17 @@ func NewPool(client *ethclient.Client, name string, poolAddress common.Address, 
 
 // UpdateState updates the internal pool state. Should be called every time the state changes on-chain
 // i.e. on a new block.
-func (p *Pool) UpdateState() error {
+func (p *Pool) UpdateState(client *ethclient.Client) error {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 
 	opts := &bind.CallOpts{Context: ctx}
-	slot0, err := p.Caller.Slot0(opts)
+	caller, err := univ3pool.NewUniv3poolCaller(p.Address, client)
+	if err != nil {
+		return err
+	}
+
+	slot0, err := caller.Slot0(opts)
 	if err != nil {
 		return err
 	}
@@ -73,13 +81,13 @@ func (p *Pool) UpdateState() error {
 	return nil
 }
 
-func (p *Pool) PriceOf(token token.Token) (float64, error) {
+func (p *Pool) PriceOf(token common.Address) (float64, error) {
 	var (
 		token0Multiplier = new(big.Int).Exp(big.NewInt(10), big.NewInt(p.Immutables.Token0.Decimals), nil)
 		token1Multiplier = new(big.Int).Exp(big.NewInt(10), big.NewInt(p.Immutables.Token1.Decimals), nil)
 	)
 
-	if token.Address == p.Immutables.Token0.Address {
+	if token == p.Immutables.Token0.Address {
 		numerator := new(big.Int).Exp(p.State.SqrtPriceX96, big.NewInt(2), nil)
 		// multiply by token decimals
 		numerator = numerator.Mul(numerator, token0Multiplier)
@@ -91,7 +99,7 @@ func (p *Pool) PriceOf(token token.Token) (float64, error) {
 		res := n.Quo(n, d)
 		price, _ := res.Quo(res, new(big.Float).SetInt(token1Multiplier)).Float64()
 		return price, nil
-	} else if token.Address == p.Immutables.Token1.Address {
+	} else if token == p.Immutables.Token1.Address {
 		numerator := new(big.Int).Exp(big.NewInt(2), big.NewInt(192), nil)
 		numerator = numerator.Mul(numerator, token1Multiplier)
 		n := new(big.Float).SetInt(numerator)
@@ -106,4 +114,27 @@ func (p *Pool) PriceOf(token token.Token) (float64, error) {
 	}
 
 	return 0, ErrWrongToken
+}
+
+func DecodePool(poolBytes []byte) (*Pool, error) {
+	buf := bytes.NewBuffer(poolBytes)
+	dec := gob.NewDecoder(buf)
+
+	var pool Pool
+	if err := dec.Decode(&pool); err != nil {
+		return nil, err
+	}
+
+	return &pool, nil
+}
+
+func (p Pool) EncodePool() ([]byte, error) {
+	var buf bytes.Buffer
+	enc := gob.NewEncoder(&buf)
+	// Problem: gob can only encode exported fields, which univ3pool.Caller has none of. So we can't encode that field.
+	if err := enc.Encode(p); err != nil {
+		return []byte{}, err
+	}
+
+	return buf.Bytes(), nil
 }

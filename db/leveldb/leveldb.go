@@ -2,6 +2,7 @@ package leveldb
 
 import (
 	"github.com/syndtr/goleveldb/leveldb"
+	"github.com/syndtr/goleveldb/leveldb/iterator"
 )
 
 type Database struct {
@@ -31,4 +32,8 @@ func (db Database) Get(key string) ([]byte, bool) {
 
 func (db *Database) Put(key string, value []byte) {
 	db.ldb.Put([]byte(key), value, nil)
+}
+
+func (db *Database) NewIterator() iterator.Iterator {
+	return db.ldb.NewIterator(nil, nil)
 }
