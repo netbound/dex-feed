@@ -1,9 +1,10 @@
 package db
 
 import (
-	"dex-feed/db/leveldb"
-	"dex-feed/db/memorydb"
 	"log"
+
+	"github.com/netbound/dex-feed/db/leveldb"
+	"github.com/netbound/dex-feed/db/memorydb"
 
 	"github.com/syndtr/goleveldb/leveldb/iterator"
 )

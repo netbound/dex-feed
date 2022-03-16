@@ -7,9 +7,10 @@ import (
 	"math/big"
 	"time"
 
-	univ3factory "dex-feed/bindings/uniswap_v3/factory"
-	"dex-feed/db"
-	"dex-feed/token"
+	"github.com/netbound/dex-feed/db"
+	"github.com/netbound/dex-feed/token"
+
+	univ3factory "github.com/netbound/dex-feed/bindings/uniswap_v3/factory"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
