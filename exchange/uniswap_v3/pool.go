@@ -8,8 +8,8 @@ import (
 	"math/big"
 	"time"
 
-	univ3pool "dex-feed/bindings/uniswap_v3/pool"
-	"dex-feed/token"
+	univ3pool "github.com/netbound/dex-feed/bindings/uniswap_v3/pool"
+	"github.com/netbound/dex-feed/token"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"

@@ -2,9 +2,10 @@ package uniswapv3
 
 import (
 	"context"
-	"dex-feed/token"
 	"testing"
 	"time"
+
+	"github.com/netbound/dex-feed/token"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
