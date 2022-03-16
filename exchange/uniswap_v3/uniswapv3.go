@@ -28,8 +28,7 @@ type UniswapV3 struct {
 	Client *ethclient.Client
 
 	PoolAddressCache db.Cacher // Holds the pool addresses for different assets and fee tiers
-
-	PoolCache db.Cacher // Holds the actual pools in a chained cache (checks memory first, then leveldb on disk)
+	PoolCache        db.Cacher // Holds the actual pools in a chained cache (checks memory first, then leveldb on disk)
 
 	Factory *univ3factory.Univ3factoryCaller
 }
