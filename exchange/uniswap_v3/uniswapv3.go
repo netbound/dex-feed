@@ -125,7 +125,6 @@ func (v3 *UniswapV3) GetPool(token0, token1 common.Address, fee int64) (*Pool, e
 	}
 
 	// First time: update initial state
-	// PROBLEM: this does not update the state in the cache
 	err = pool.UpdateState(v3.Client)
 	if err != nil {
 		return nil, err
