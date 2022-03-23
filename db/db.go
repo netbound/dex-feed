@@ -21,7 +21,7 @@ type Cache struct {
 	dbCache  *leveldb.Database
 }
 
-func NewCache(name string, size int) *Cache {
+func NewDBCache(name string, size int) *Cache {
 	dbCache, err := leveldb.NewDatabase(name)
 	if err != nil {
 		log.Fatal("err creating leveldb", err)

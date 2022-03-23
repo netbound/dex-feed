@@ -1,6 +1,9 @@
 package memorydb
 
-import lru "github.com/hashicorp/golang-lru"
+import (
+	lru "github.com/hashicorp/golang-lru"
+	"github.com/syndtr/goleveldb/leveldb/iterator"
+)
 
 // Implements Cacher
 type LruCache struct {
@@ -23,4 +26,9 @@ func (c LruCache) Get(key string) ([]byte, bool) {
 
 func (c *LruCache) Put(key string, value []byte) {
 	c.cache.Add(key, value)
+}
+
+// Hack, db.Cacher interface needs this
+func (c LruCache) NewIterator() iterator.Iterator {
+	return iterator.NewEmptyIterator(nil)
 }

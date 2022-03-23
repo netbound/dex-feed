@@ -33,7 +33,7 @@ func newConnectedUniV3() *UniswapV3 {
 	}
 
 	addrs := UniswapV3Addresses{FactoryAddress: factoryAddress}
-	uni = New(c, addrs)
+	uni = New(c, addrs, Opts{DbCache: true})
 	uni.UpdateCachedPoolStates()
 
 	return uni

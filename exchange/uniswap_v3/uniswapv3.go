@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/netbound/dex-feed/db"
+	"github.com/netbound/dex-feed/db/memorydb"
 	"github.com/netbound/dex-feed/token"
 
 	univ3factory "github.com/netbound/dex-feed/bindings/uniswap_v3/factory"
@@ -34,9 +35,23 @@ type UniswapV3 struct {
 	Factory *univ3factory.Univ3factoryCaller
 }
 
-func New(client *ethclient.Client, addrs UniswapV3Addresses) *UniswapV3 {
-	ac := db.NewCache("univ3_address_cache", 2048)
-	pc := db.NewCache("univ3_pool_cache", 2048)
+type Opts struct {
+	DbCache bool // Should cache be persisted? (leveldb)
+}
+
+// New returns a UniswapV3 instance.
+func New(client *ethclient.Client, addrs UniswapV3Addresses, opts Opts) *UniswapV3 {
+	var ac, pc db.Cacher
+
+	// By default, only use memory cache
+	ac = memorydb.New(2048)
+	pc = memorydb.New(2048)
+
+	// If dbCache flag is set, initalize leveldb
+	if opts.DbCache {
+		ac = db.NewDBCache("univ3_address_cache", 2048)
+		pc = db.NewDBCache("univ3_pool_cache", 2048)
+	}
 
 	factory, err := univ3factory.NewUniv3factoryCaller(addrs.FactoryAddress, client)
 	if err != nil {

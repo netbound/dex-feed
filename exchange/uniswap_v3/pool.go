@@ -60,6 +60,7 @@ func NewPool(client *ethclient.Client, name string, poolAddress common.Address, 
 
 // UpdateState updates the internal pool state. Should be called every time the state changes on-chain
 // i.e. on a new block. Note that cached pools should have their states refreshed as well.
+// TODO: accept context
 func (p *Pool) UpdateState(client *ethclient.Client) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
