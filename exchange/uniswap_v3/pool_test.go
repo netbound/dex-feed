@@ -24,7 +24,7 @@ var client *ethclient.Client
 func newTestPool() (*Pool, error) {
 	var err error
 
-	i := PoolImmutables{
+	i := PoolOpts{
 		Token0: token0,
 		Token1: token1,
 		Fee:    fee,
@@ -58,7 +58,10 @@ func TestNewPool(t *testing.T) {
 }
 
 func TestUpdateState(t *testing.T) {
-	err := p.UpdateState(client)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	defer cancel()
+
+	err := p.UpdateState(ctx, client)
 	if err != nil {
 		t.Fatalf("error updating state: %s", err)
 	}

@@ -5,7 +5,6 @@ import (
 	"errors"
 	"log"
 	"math/big"
-	"time"
 
 	"github.com/netbound/dex-feed/db"
 	"github.com/netbound/dex-feed/db/memorydb"
@@ -33,10 +32,13 @@ type UniswapV3 struct {
 	PoolCache        db.Cacher // Holds the actual pools in a chained cache (checks memory first, then leveldb on disk)
 
 	Factory *univ3factory.Univ3factoryCaller
+
+	Opts Opts // Holds options
 }
 
 type Opts struct {
-	DbCache bool // Should cache be persisted? (leveldb)
+	Ctx     context.Context // Default context to use with calls
+	DbCache bool            // Should cache be persisted? (leveldb)
 }
 
 // New returns a UniswapV3 instance.
@@ -66,8 +68,8 @@ func New(client *ethclient.Client, addrs UniswapV3Addresses, opts Opts) *Uniswap
 	}
 }
 
-func (v3 *UniswapV3) GetPrice(token0, token1 common.Address, fee int64) (float64, error) {
-	pool, err := v3.GetPool(token0, token1, fee)
+func (v3 *UniswapV3) GetPrice(ctx context.Context, token0, token1 common.Address, fee int64) (float64, error) {
+	pool, err := v3.GetPool(ctx, token0, token1, fee)
 	if err != nil {
 		return 0, err
 	}
@@ -75,7 +77,7 @@ func (v3 *UniswapV3) GetPrice(token0, token1 common.Address, fee int64) (float64
 	return pool.PriceOf(token1)
 }
 
-func (v3 *UniswapV3) GetPoolAddress(token0, token1 common.Address, fee int64) (common.Address, error) {
+func (v3 *UniswapV3) GetPoolAddress(ctx context.Context, token0, token1 common.Address, fee int64) (common.Address, error) {
 	// Make sure the address order is the same as in the Pool contract, easier for lookups
 	token0, token1 = sortTokens(token0, token1)
 	key := createPoolKey(token0, token1, fee)
@@ -85,9 +87,6 @@ func (v3 *UniswapV3) GetPoolAddress(token0, token1 common.Address, fee int64) (c
 	}
 
 	zeroAddress := [20]byte{}
-
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
-	defer cancel()
 
 	pool, err := v3.Factory.GetPool(&bind.CallOpts{Context: ctx}, token0, token1, big.NewInt(fee))
 	if err != nil {
@@ -113,11 +112,11 @@ func (v3 *UniswapV3) getPoolAddressCached(key string) (common.Address, bool) {
 	return [20]byte{}, false
 }
 
-func (v3 *UniswapV3) GetPool(token0, token1 common.Address, fee int64) (*Pool, error) {
+func (v3 *UniswapV3) GetPool(ctx context.Context, token0, token1 common.Address, fee int64) (*Pool, error) {
 	// Make sure the address order is the same as in the Pool contract, easier for lookups
 	token0, token1 = sortTokens(token0, token1)
 
-	poolAddr, err := v3.GetPoolAddress(token0, token1, fee)
+	poolAddr, err := v3.GetPoolAddress(ctx, token0, token1, fee)
 	if err != nil {
 		return nil, err
 	}
@@ -127,7 +126,7 @@ func (v3 *UniswapV3) GetPool(token0, token1 common.Address, fee int64) (*Pool, e
 		return pool, nil
 	}
 
-	immutables := PoolImmutables{
+	immutables := PoolOpts{
 		// TODO: hardcoded decimals for now
 		Token0: token.Token{Address: token0, Decimals: 6, Name: "USDC"},
 		Token1: token.Token{Address: token1, Decimals: 18, Name: "WETH"},
@@ -140,7 +139,7 @@ func (v3 *UniswapV3) GetPool(token0, token1 common.Address, fee int64) (*Pool, e
 	}
 
 	// First time: update initial state
-	err = pool.UpdateState(v3.Client)
+	err = pool.UpdateState(ctx, v3.Client)
 	if err != nil {
 		return nil, err
 	}
@@ -149,6 +148,7 @@ func (v3 *UniswapV3) GetPool(token0, token1 common.Address, fee int64) (*Pool, e
 	if err != nil {
 		return nil, err
 	}
+
 	v3.PoolCache.Put(key, encoded)
 
 	return pool, nil
@@ -169,7 +169,7 @@ func (v3 *UniswapV3) getPoolCached(key string) (*Pool, bool) {
 
 // UpdateCachedPoolStates should get called once the chain state updates, i.e. on a new block.
 // It retrieves all the pools from the cache, updates their states and writes them to cache again.
-func (v3 *UniswapV3) UpdateCachedPoolStates() error {
+func (v3 *UniswapV3) UpdateCachedPoolStates(ctx context.Context) error {
 	iter := v3.PoolCache.NewIterator()
 
 	for iter.Next() {
@@ -180,7 +180,7 @@ func (v3 *UniswapV3) UpdateCachedPoolStates() error {
 			return err
 		}
 
-		err = pool.UpdateState(v3.Client)
+		err = pool.UpdateState(ctx, v3.Client)
 		if err != nil {
 			return err
 		}

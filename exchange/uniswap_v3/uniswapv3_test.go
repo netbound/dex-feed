@@ -34,7 +34,7 @@ func newConnectedUniV3() *UniswapV3 {
 
 	addrs := UniswapV3Addresses{FactoryAddress: factoryAddress}
 	uni = New(c, addrs, Opts{DbCache: true})
-	uni.UpdateCachedPoolStates()
+	uni.UpdateCachedPoolStates(ctx)
 
 	return uni
 }
@@ -42,8 +42,11 @@ func newConnectedUniV3() *UniswapV3 {
 func TestGetPoolWithFee(t *testing.T) {
 	uni := newConnectedUniV3()
 
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	defer cancel()
+
 	t1 := time.Now()
-	pool, err := uni.GetPoolAddress(wethAddress, usdcAddress, fee)
+	pool, err := uni.GetPoolAddress(ctx, wethAddress, usdcAddress, fee)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -57,7 +60,7 @@ func TestGetPoolWithFee(t *testing.T) {
 	// }
 
 	t2 := time.Now()
-	pool, err = uni.GetPoolAddress(wethAddress, usdcAddress, fee)
+	pool, err = uni.GetPoolAddress(ctx, wethAddress, usdcAddress, fee)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -67,14 +70,17 @@ func TestGetPoolWithFee(t *testing.T) {
 }
 
 func TestGetPrice(t *testing.T) {
-	price, err := uni.GetPrice(wethAddress, usdcAddress, fee)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	defer cancel()
+
+	price, err := uni.GetPrice(ctx, wethAddress, usdcAddress, fee)
 	if err != nil {
 		t.Log(err)
 	}
 
 	t.Log(wethAddress, usdcAddress, price)
 
-	price, err = uni.GetPrice(usdcAddress, wethAddress, fee)
+	price, err = uni.GetPrice(ctx, usdcAddress, wethAddress, fee)
 	if err != nil {
 		t.Log(err)
 	}

@@ -6,7 +6,6 @@ import (
 	"encoding/gob"
 	"errors"
 	"math/big"
-	"time"
 
 	univ3pool "github.com/netbound/dex-feed/bindings/uniswap_v3/pool"
 	"github.com/netbound/dex-feed/token"
@@ -20,7 +19,7 @@ var (
 	ErrWrongToken = errors.New("uniswap v3 pool: PriceOf: token not in pool")
 )
 
-type PoolImmutables struct {
+type PoolOpts struct {
 	Token0 token.Token
 	Token1 token.Token
 	Fee    int64
@@ -38,11 +37,11 @@ type Pool struct {
 	// NOTE: this field is empty for now because it is lost on encoding/decoding
 	caller *univ3pool.Univ3poolCaller
 
-	Immutables PoolImmutables
+	Immutables PoolOpts
 	State      PoolState // The last known Pool State
 }
 
-func NewPool(client *ethclient.Client, name string, poolAddress common.Address, immutables PoolImmutables) (*Pool, error) {
+func NewPool(client *ethclient.Client, name string, poolAddress common.Address, immutables PoolOpts) (*Pool, error) {
 	caller, err := univ3pool.NewUniv3poolCaller(poolAddress, client)
 	if err != nil {
 		return nil, err
@@ -61,11 +60,9 @@ func NewPool(client *ethclient.Client, name string, poolAddress common.Address, 
 // UpdateState updates the internal pool state. Should be called every time the state changes on-chain
 // i.e. on a new block. Note that cached pools should have their states refreshed as well.
 // TODO: accept context
-func (p *Pool) UpdateState(client *ethclient.Client) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
+func (p *Pool) UpdateState(ctx context.Context, client *ethclient.Client) error {
 	opts := &bind.CallOpts{Context: ctx}
+
 	caller, err := univ3pool.NewUniv3poolCaller(p.Address, client)
 	if err != nil {
 		return err
