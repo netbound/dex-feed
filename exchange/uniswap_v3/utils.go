@@ -1,6 +1,10 @@
 package uniswapv3
 
-import "math"
+import (
+	"math"
+
+	"github.com/ethereum/go-ethereum/common"
+)
 
 // Gets the amounts out for the current price and lpValue, given the lower and upper price bounds
 // of the position.
@@ -34,4 +38,21 @@ func GetTickAtPrice(price float64) int64 {
 // Gets the price at the given tick.
 func GetPriceAtTick(tick int64) float64 {
 	return math.Pow(1.0001, float64(tick))
+}
+
+func createPoolKey(token0, token1 common.Address, fee int64) string {
+	// Our key is just appending the bytes of token0, token1 and the fee
+	keyBytes := append(token0.Bytes(), token1.Bytes()...)
+	// This works because the values are still unique
+	return string(append(keyBytes, byte(fee)))
+}
+
+func sortTokens(tokenA, tokenB common.Address) (token0, token1 common.Address) {
+	token0 = tokenA
+	token1 = tokenB
+	if tokenB.String() < tokenA.String() {
+		token0 = tokenB
+		token1 = tokenA
+	}
+	return
 }

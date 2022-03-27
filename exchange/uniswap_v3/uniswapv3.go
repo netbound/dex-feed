@@ -21,15 +21,13 @@ var (
 	ErrPoolNotFound = errors.New("uniswap v3 factory: pool not found")
 )
 
-type UniswapV3Addresses struct {
-	FactoryAddress common.Address
-}
-
 type UniswapV3 struct {
 	Client *ethclient.Client
 
 	PoolAddressCache db.Cacher // Holds the pool addresses for different assets and fee tiers
 	PoolCache        db.Cacher // Holds the actual pools in a chained cache (checks memory first, then leveldb on disk)
+
+	TokenCache token.TokenCache
 
 	Factory *univ3factory.Univ3factoryCaller
 
@@ -37,25 +35,30 @@ type UniswapV3 struct {
 }
 
 type Opts struct {
-	Ctx     context.Context // Default context to use with calls
-	DbCache bool            // Should cache be persisted? (leveldb)
+	DbCache   bool // Should cache be persisted? (leveldb)
+	CacheSize int  // Size of the in-memory LRU cache
 }
 
-// New returns a UniswapV3 instance.
-func New(client *ethclient.Client, addrs UniswapV3Addresses, opts Opts) *UniswapV3 {
+// Returns a UniswapV3 instance.
+func New(client *ethclient.Client, factoryAddress common.Address, opts Opts) *UniswapV3 {
 	var ac, pc db.Cacher
 
+	cacheSize := opts.CacheSize
+	if cacheSize == 0 {
+		cacheSize = 2048
+	}
+
 	// By default, only use memory cache
-	ac = memorydb.New(2048)
-	pc = memorydb.New(2048)
+	ac = memorydb.New(cacheSize)
+	pc = memorydb.New(cacheSize)
 
 	// If dbCache flag is set, initalize leveldb
 	if opts.DbCache {
-		ac = db.NewDBCache("univ3_address_cache", 2048)
-		pc = db.NewDBCache("univ3_pool_cache", 2048)
+		ac = db.NewDBCache("univ3_address_cache", cacheSize)
+		pc = db.NewDBCache("univ3_pool_cache", cacheSize)
 	}
 
-	factory, err := univ3factory.NewUniv3factoryCaller(addrs.FactoryAddress, client)
+	factory, err := univ3factory.NewUniv3factoryCaller(factoryAddress, client)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -167,6 +170,12 @@ func (v3 *UniswapV3) getPoolCached(key string) (*Pool, bool) {
 	return nil, false
 }
 
+// TODO
+func (v3 *UniswapV3) GetToken(address common.Address) (token.Token, error) {
+
+	return token.Token{}, nil
+}
+
 // UpdateCachedPoolStates should get called once the chain state updates, i.e. on a new block.
 // It retrieves all the pools from the cache, updates their states and writes them to cache again.
 func (v3 *UniswapV3) UpdateCachedPoolStates(ctx context.Context) error {
@@ -195,21 +204,4 @@ func (v3 *UniswapV3) UpdateCachedPoolStates(ctx context.Context) error {
 
 	iter.Release()
 	return nil
-}
-
-func createPoolKey(token0, token1 common.Address, fee int64) string {
-	// Our key is just appending the bytes of token0, token1 and the fee
-	keyBytes := append(token0.Bytes(), token1.Bytes()...)
-	// This works because the values are still unique
-	return string(append(keyBytes, byte(fee)))
-}
-
-func sortTokens(tokenA, tokenB common.Address) (token0, token1 common.Address) {
-	token0 = tokenA
-	token1 = tokenB
-	if tokenB.String() < tokenA.String() {
-		token0 = tokenB
-		token1 = tokenA
-	}
-	return
 }
