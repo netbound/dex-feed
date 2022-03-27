@@ -21,6 +21,12 @@ type Cache struct {
 	dbCache  *leveldb.Database
 }
 
+type Opts struct {
+	DataDir    string // Path where the db should be created
+	Persistent bool   // Should cache be persisted? (leveldb)
+	CacheSize  int    // Size of the in-memory LRU cache
+}
+
 func NewDBCache(name string, size int) *Cache {
 	dbCache, err := leveldb.NewDatabase(name)
 	if err != nil {

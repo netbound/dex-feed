@@ -4,6 +4,7 @@
 package univ3factory
 
 import (
+	"errors"
 	"math/big"
 	"strings"
 
@@ -17,6 +18,7 @@ import (
 
 // Reference imports to suppress errors if they are not otherwise used.
 var (
+	_ = errors.New
 	_ = big.NewInt
 	_ = strings.NewReader
 	_ = ethereum.NotFound
@@ -26,8 +28,14 @@ var (
 	_ = event.NewSubscription
 )
 
+// Univ3factoryMetaData contains all meta data concerning the Univ3factory contract.
+var Univ3factoryMetaData = &bind.MetaData{
+	ABI: "[{\"inputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"},{\"internalType\":\"uint24\",\"name\":\"\",\"type\":\"uint24\"}],\"name\":\"getPool\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"}]",
+}
+
 // Univ3factoryABI is the input ABI used to generate the binding from.
-const Univ3factoryABI = "[{\"inputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"},{\"internalType\":\"uint24\",\"name\":\"\",\"type\":\"uint24\"}],\"name\":\"getPool\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"}]"
+// Deprecated: Use Univ3factoryMetaData.ABI instead.
+var Univ3factoryABI = Univ3factoryMetaData.ABI
 
 // Univ3factory is an auto generated Go binding around an Ethereum contract.
 type Univ3factory struct {

@@ -8,6 +8,8 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/netbound/dex-feed/db"
+	"github.com/netbound/dex-feed/token"
 )
 
 var uni *UniswapV3
@@ -32,7 +34,9 @@ func newConnectedUniV3() *UniswapV3 {
 		log.Fatal(err)
 	}
 
-	uni = New(c, factoryAddress, Opts{DbCache: true})
+	tdb := token.NewTokenDB(c, db.Opts{Persistent: true})
+
+	uni = New(c, tdb, factoryAddress, db.Opts{Persistent: true})
 	uni.UpdateCachedPoolStates(ctx)
 
 	return uni

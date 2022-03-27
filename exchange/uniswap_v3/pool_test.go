@@ -81,7 +81,7 @@ func TestPriceOf(t *testing.T) {
 		t.Fatalf("error getting price: %s", err)
 	}
 
-	t.Log("price of", token1.Name, price)
+	t.Log("price of", token1.Symbol, price)
 }
 
 func BenchmarkPriceOf(b *testing.B) {

@@ -2,27 +2,24 @@ package token
 
 import (
 	"bytes"
-	"context"
 	"encoding/gob"
 
 	"github.com/ethereum/go-ethereum/common"
 )
 
 type Token struct {
-	Name     string
+	Symbol   string
 	Address  common.Address
 	Decimals int64
 }
 
 func NewToken(name string, address common.Address, decimals int64) Token {
 	return Token{
-		Name:     name,
+		Symbol:   name,
 		Address:  address,
 		Decimals: decimals,
 	}
 }
-
-func GetToken(ctx context.Context)
 
 func Decode(poolBytes []byte) (Token, error) {
 	buf := bytes.NewBuffer(poolBytes)

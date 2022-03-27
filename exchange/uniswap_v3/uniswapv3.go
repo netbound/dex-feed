@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log"
 	"math/big"
+	"path"
 
 	"github.com/netbound/dex-feed/db"
 	"github.com/netbound/dex-feed/db/memorydb"
@@ -27,20 +28,15 @@ type UniswapV3 struct {
 	PoolAddressCache db.Cacher // Holds the pool addresses for different assets and fee tiers
 	PoolCache        db.Cacher // Holds the actual pools in a chained cache (checks memory first, then leveldb on disk)
 
-	TokenCache token.TokenCache
+	TokenDB *token.TokenDB
 
 	Factory *univ3factory.Univ3factoryCaller
 
-	Opts Opts // Holds options
-}
-
-type Opts struct {
-	DbCache   bool // Should cache be persisted? (leveldb)
-	CacheSize int  // Size of the in-memory LRU cache
+	Opts db.Opts // Holds options
 }
 
 // Returns a UniswapV3 instance.
-func New(client *ethclient.Client, factoryAddress common.Address, opts Opts) *UniswapV3 {
+func New(client *ethclient.Client, tokenDB *token.TokenDB, factoryAddress common.Address, opts db.Opts) *UniswapV3 {
 	var ac, pc db.Cacher
 
 	cacheSize := opts.CacheSize
@@ -53,9 +49,9 @@ func New(client *ethclient.Client, factoryAddress common.Address, opts Opts) *Un
 	pc = memorydb.New(cacheSize)
 
 	// If dbCache flag is set, initalize leveldb
-	if opts.DbCache {
-		ac = db.NewDBCache("univ3_address_cache", cacheSize)
-		pc = db.NewDBCache("univ3_pool_cache", cacheSize)
+	if opts.Persistent {
+		ac = db.NewDBCache(path.Join(opts.DataDir, "univ3_address_cache"), cacheSize)
+		pc = db.NewDBCache(path.Join(opts.DataDir, "univ3_pool_cache"), cacheSize)
 	}
 
 	factory, err := univ3factory.NewUniv3factoryCaller(factoryAddress, client)
@@ -67,6 +63,7 @@ func New(client *ethclient.Client, factoryAddress common.Address, opts Opts) *Un
 		Client:           client,
 		PoolAddressCache: ac,
 		PoolCache:        pc,
+		TokenDB:          tokenDB,
 		Factory:          factory,
 	}
 }
@@ -129,10 +126,19 @@ func (v3 *UniswapV3) GetPool(ctx context.Context, token0, token1 common.Address,
 		return pool, nil
 	}
 
+	t0, err := v3.TokenDB.GetToken(ctx, token0)
+	if err != nil {
+		return nil, err
+	}
+
+	t1, err := v3.TokenDB.GetToken(ctx, token1)
+	if err != nil {
+		return nil, err
+	}
+
 	immutables := PoolOpts{
-		// TODO: hardcoded decimals for now
-		Token0: token.Token{Address: token0, Decimals: 6, Name: "USDC"},
-		Token1: token.Token{Address: token1, Decimals: 18, Name: "WETH"},
+		Token0: t0,
+		Token1: t1,
 		Fee:    fee,
 	}
 
@@ -168,12 +174,6 @@ func (v3 *UniswapV3) getPoolCached(key string) (*Pool, bool) {
 	}
 
 	return nil, false
-}
-
-// TODO
-func (v3 *UniswapV3) GetToken(address common.Address) (token.Token, error) {
-
-	return token.Token{}, nil
 }
 
 // UpdateCachedPoolStates should get called once the chain state updates, i.e. on a new block.
