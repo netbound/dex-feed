@@ -92,12 +92,12 @@ func BenchmarkPriceOf(b *testing.B) {
 }
 
 func TestEncodeDecodePool(t *testing.T) {
-	poolBytes, err := p.EncodePool()
+	poolBytes, err := p.Encode()
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	newPool, err := DecodePool(poolBytes)
+	newPool, err := Decode(poolBytes)
 	if err != nil {
 		t.Fatal(err)
 	}

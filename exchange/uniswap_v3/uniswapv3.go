@@ -6,9 +6,9 @@ import (
 	"log"
 	"math/big"
 	"path"
+	"time"
 
 	"github.com/netbound/dex-feed/db"
-	"github.com/netbound/dex-feed/db/memorydb"
 	"github.com/netbound/dex-feed/token"
 
 	univ3factory "github.com/netbound/dex-feed/bindings/uniswap_v3/factory"
@@ -28,15 +28,17 @@ type UniswapV3 struct {
 	PoolAddressCache db.Cacher // Holds the pool addresses for different assets and fee tiers
 	PoolCache        db.Cacher // Holds the actual pools in a chained cache (checks memory first, then leveldb on disk)
 
-	TokenDB *token.TokenDB
+	tokenManager token.TokenManager
 
 	Factory *univ3factory.Univ3factoryCaller
 
 	Opts db.Opts // Holds options
+
+	defaultTimeout time.Duration
 }
 
 // Returns a UniswapV3 instance.
-func New(client *ethclient.Client, tokenDB *token.TokenDB, factoryAddress common.Address, opts db.Opts) *UniswapV3 {
+func New(client *ethclient.Client, tokenManager token.TokenManager, factoryAddress common.Address, opts db.Opts) *UniswapV3 {
 	var ac, pc db.Cacher
 
 	cacheSize := opts.CacheSize
@@ -45,13 +47,13 @@ func New(client *ethclient.Client, tokenDB *token.TokenDB, factoryAddress common
 	}
 
 	// By default, only use memory cache
-	ac = memorydb.New(cacheSize)
-	pc = memorydb.New(cacheSize)
+	ac = db.NewMemoryCache(cacheSize)
+	pc = db.NewMemoryCache(cacheSize)
 
 	// If dbCache flag is set, initalize leveldb
 	if opts.Persistent {
-		ac = db.NewDBCache(path.Join(opts.DataDir, "univ3_address_cache"), cacheSize)
-		pc = db.NewDBCache(path.Join(opts.DataDir, "univ3_pool_cache"), cacheSize)
+		ac = db.NewFullCache(path.Join(opts.DataDir, "univ3_address_cache"), cacheSize)
+		pc = db.NewFullCache(path.Join(opts.DataDir, "univ3_pool_cache"), cacheSize)
 	}
 
 	factory, err := univ3factory.NewUniv3factoryCaller(factoryAddress, client)
@@ -63,8 +65,9 @@ func New(client *ethclient.Client, tokenDB *token.TokenDB, factoryAddress common
 		Client:           client,
 		PoolAddressCache: ac,
 		PoolCache:        pc,
-		TokenDB:          tokenDB,
+		tokenManager:     tokenManager,
 		Factory:          factory,
+		defaultTimeout:   time.Second * 10,
 	}
 }
 
@@ -80,8 +83,10 @@ func (v3 *UniswapV3) GetPrice(ctx context.Context, token0, token1 common.Address
 func (v3 *UniswapV3) GetPoolAddress(ctx context.Context, token0, token1 common.Address, fee int64) (common.Address, error) {
 	// Make sure the address order is the same as in the Pool contract, easier for lookups
 	token0, token1 = sortTokens(token0, token1)
+	// TODO: SOC
 	key := createPoolKey(token0, token1, fee)
 
+	// TODO: SOC: create poolmanager (like tokenmanager) that takes care of this
 	if pool, ok := v3.getPoolAddressCached(key); ok {
 		return pool, nil
 	}
@@ -126,12 +131,12 @@ func (v3 *UniswapV3) GetPool(ctx context.Context, token0, token1 common.Address,
 		return pool, nil
 	}
 
-	t0, err := v3.TokenDB.GetToken(ctx, token0)
+	t0, err := v3.tokenManager.GetToken(ctx, token0)
 	if err != nil {
 		return nil, err
 	}
 
-	t1, err := v3.TokenDB.GetToken(ctx, token1)
+	t1, err := v3.tokenManager.GetToken(ctx, token1)
 	if err != nil {
 		return nil, err
 	}
@@ -142,7 +147,8 @@ func (v3 *UniswapV3) GetPool(ctx context.Context, token0, token1 common.Address,
 		Fee:    fee,
 	}
 
-	pool, err := NewPool(v3.Client, "USDCWETH", poolAddr, immutables)
+	poolName := t0.Symbol + t1.Symbol
+	pool, err := NewPool(v3.Client, poolName, poolAddr, immutables)
 	if err != nil {
 		return nil, err
 	}
@@ -153,7 +159,7 @@ func (v3 *UniswapV3) GetPool(ctx context.Context, token0, token1 common.Address,
 		return nil, err
 	}
 
-	encoded, err := pool.EncodePool()
+	encoded, err := pool.Encode()
 	if err != nil {
 		return nil, err
 	}
@@ -166,7 +172,7 @@ func (v3 *UniswapV3) GetPool(ctx context.Context, token0, token1 common.Address,
 func (v3 *UniswapV3) getPoolCached(key string) (*Pool, bool) {
 	if poolBytes, ok := v3.PoolCache.Get(key); ok {
 		// TODO: convert to pool
-		pool, err := DecodePool(poolBytes)
+		pool, err := Decode(poolBytes)
 		if err != nil {
 			return nil, false
 		}
@@ -184,7 +190,7 @@ func (v3 *UniswapV3) UpdateCachedPoolStates(ctx context.Context) error {
 	for iter.Next() {
 		key := iter.Key()
 		poolBytes := iter.Value()
-		pool, err := DecodePool(poolBytes)
+		pool, err := Decode(poolBytes)
 		if err != nil {
 			return err
 		}
@@ -194,7 +200,7 @@ func (v3 *UniswapV3) UpdateCachedPoolStates(ctx context.Context) error {
 			return err
 		}
 
-		encoded, err := pool.EncodePool()
+		encoded, err := pool.Encode()
 		if err != nil {
 			return err
 		}

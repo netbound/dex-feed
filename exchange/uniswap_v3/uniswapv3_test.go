@@ -17,6 +17,7 @@ var uni *UniswapV3
 var (
 	wethAddress = common.HexToAddress("0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2")
 	usdcAddress = common.HexToAddress("0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48")
+	usdtAddress = common.HexToAddress("0xdAC17F958D2ee523a2206206994597C13D831ec7")
 	fee         = int64(500)
 )
 
@@ -42,37 +43,38 @@ func newConnectedUniV3() *UniswapV3 {
 	return uni
 }
 
-func TestGetPoolWithFee(t *testing.T) {
-	uni := newConnectedUniV3()
+// func TestGetPoolWithFee(t *testing.T) {
+// 	uni := newConnectedUniV3()
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
-	defer cancel()
+// 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+// 	defer cancel()
 
-	t1 := time.Now()
-	pool, err := uni.GetPoolAddress(ctx, wethAddress, usdcAddress, fee)
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Log(pool)
+// 	t1 := time.Now()
+// 	pool, err := uni.GetPoolAddress(ctx, wethAddress, usdcAddress, fee)
+// 	if err != nil {
+// 		t.Fatal(err)
+// 	}
+// 	t.Log(pool)
 
-	timeNoCache := time.Since(t1)
-	t.Logf("time without cache: %v", timeNoCache)
+// 	timeNoCache := time.Since(t1)
+// 	t.Logf("time without cache: %v", timeNoCache)
 
-	// if pool != common.HexToAddress("0x8ad599c3A0ff1De082011EFDDc58f1908eb6e6D8") {
-	// 	t.Fatalf("wrong pool: %s", pool)
-	// }
+// 	// if pool != common.HexToAddress("0x8ad599c3A0ff1De082011EFDDc58f1908eb6e6D8") {
+// 	// 	t.Fatalf("wrong pool: %s", pool)
+// 	// }
 
-	t2 := time.Now()
-	pool, err = uni.GetPoolAddress(ctx, wethAddress, usdcAddress, fee)
-	if err != nil {
-		t.Fatal(err)
-	}
+// 	t2 := time.Now()
+// 	pool, err = uni.GetPoolAddress(ctx, wethAddress, usdcAddress, fee)
+// 	if err != nil {
+// 		t.Fatal(err)
+// 	}
 
-	timeWithCache := time.Since(t2)
-	t.Logf("time with cache: %v", timeWithCache)
-}
+// 	timeWithCache := time.Since(t2)
+// 	t.Logf("time with cache: %v", timeWithCache)
+// }
 
 func TestGetPrice(t *testing.T) {
+	uni := newConnectedUniV3()
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 	defer cancel()
 
@@ -83,7 +85,7 @@ func TestGetPrice(t *testing.T) {
 
 	t.Log(wethAddress, usdcAddress, price)
 
-	price, err = uni.GetPrice(ctx, usdcAddress, wethAddress, fee)
+	price, err = uni.GetPrice(ctx, usdtAddress, usdcAddress, fee)
 	if err != nil {
 		t.Log(err)
 	}

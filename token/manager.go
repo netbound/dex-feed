@@ -11,7 +11,6 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/netbound/dex-feed/bindings/erc20"
 	"github.com/netbound/dex-feed/db"
-	"github.com/netbound/dex-feed/db/memorydb"
 )
 
 var (
@@ -19,34 +18,43 @@ var (
 	ErrNotConnected = errors.New("not connected to a chain, use Connect method")
 )
 
-type TokenDB struct {
+type TokenManager interface {
+	GetToken(ctx context.Context, address common.Address) (Token, error)
+}
+
+type tokenManager struct {
 	client *ethclient.Client
 	cache  db.Cacher
 }
 
-func NewTokenDB(client *ethclient.Client, opts db.Opts) *TokenDB {
+func NewTokenDB(client *ethclient.Client, opts db.Opts) TokenManager {
 	var c db.Cacher
-	c = memorydb.New(opts.CacheSize)
 
-	if opts.Persistent {
-		c = db.NewDBCache(path.Join(opts.DataDir, "token_cache"), opts.CacheSize)
+	if opts.CacheSize == 0 {
+		opts.CacheSize = 2048
 	}
 
-	return &TokenDB{
+	c = db.NewMemoryCache(opts.CacheSize)
+
+	if opts.Persistent {
+		c = db.NewFullCache(path.Join(opts.DataDir, "token_cache"), opts.CacheSize)
+	}
+
+	return &tokenManager{
 		cache:  c,
 		client: client,
 	}
 }
 
 // Adds a token to the cache
-func (tc *TokenDB) add(token Token) {
+func (tc *tokenManager) add(token Token) {
 	// We can ignore the error here
 	encoded, _ := token.Encode()
 	tc.cache.Put(token.Address.String(), encoded)
 }
 
 // Gets cached token by address if it's present.
-func (tc TokenDB) get(address common.Address) (Token, bool) {
+func (tc tokenManager) get(address common.Address) (Token, bool) {
 	if encoded, ok := tc.cache.Get(address.String()); ok {
 		t, err := Decode(encoded)
 		if err != nil {
@@ -59,7 +67,7 @@ func (tc TokenDB) get(address common.Address) (Token, bool) {
 	return Token{}, false
 }
 
-func (tc *TokenDB) GetToken(ctx context.Context, address common.Address) (Token, error) {
+func (tc *tokenManager) GetToken(ctx context.Context, address common.Address) (Token, error) {
 	// Check cache
 	if token, ok := tc.get(address); ok {
 		return token, nil
@@ -72,18 +80,18 @@ func (tc *TokenDB) GetToken(ctx context.Context, address common.Address) (Token,
 
 	token, err := erc20.NewErc20Caller(address, tc.client)
 	if err != nil {
-		return Token{}, fmt.Errorf("getting token: %s", err)
+		return Token{}, fmt.Errorf("getting token: %w", err)
 	}
 
 	opts := &bind.CallOpts{Context: ctx}
 	sym, err := token.Symbol(opts)
 	if err != nil {
-		return Token{}, fmt.Errorf("getting token: reading name: %s", err)
+		return Token{}, fmt.Errorf("getting token: reading name: %w", err)
 	}
 
 	decimals, err := token.Decimals(opts)
 	if err != nil {
-		return Token{}, fmt.Errorf("getting token: reading decimals: %s", err)
+		return Token{}, fmt.Errorf("getting token: reading decimals: %w", err)
 	}
 
 	newToken := Token{

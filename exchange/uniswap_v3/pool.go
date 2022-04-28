@@ -114,7 +114,7 @@ func (p *Pool) PriceOf(token common.Address) (float64, error) {
 	return 0, ErrWrongToken
 }
 
-func DecodePool(poolBytes []byte) (*Pool, error) {
+func Decode(poolBytes []byte) (*Pool, error) {
 	buf := bytes.NewBuffer(poolBytes)
 	dec := gob.NewDecoder(buf)
 
@@ -126,7 +126,7 @@ func DecodePool(poolBytes []byte) (*Pool, error) {
 	return &pool, nil
 }
 
-func (p Pool) EncodePool() ([]byte, error) {
+func (p Pool) Encode() ([]byte, error) {
 	var buf bytes.Buffer
 	enc := gob.NewEncoder(&buf)
 	// Problem: gob can only encode exported fields, which univ3pool.Caller has none of. So we can't encode that field.

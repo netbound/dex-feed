@@ -9,6 +9,10 @@ import (
 	"github.com/syndtr/goleveldb/leveldb/iterator"
 )
 
+type Serializer interface {
+	Encode()
+}
+
 type Cacher interface {
 	Get(key string) ([]byte, bool)
 	Put(key string, value []byte)
@@ -27,7 +31,7 @@ type Opts struct {
 	CacheSize  int    // Size of the in-memory LRU cache
 }
 
-func NewDBCache(name string, size int) *Cache {
+func NewFullCache(name string, size int) *Cache {
 	dbCache, err := leveldb.NewDatabase(name)
 	if err != nil {
 		log.Fatal("err creating leveldb", err)
@@ -37,6 +41,10 @@ func NewDBCache(name string, size int) *Cache {
 		lruCache: memorydb.New(size),
 		dbCache:  dbCache,
 	}
+}
+
+func NewMemoryCache(size int) *memorydb.LruCache {
+	return memorydb.New(size)
 }
 
 func (c Cache) Get(key string) ([]byte, bool) {
